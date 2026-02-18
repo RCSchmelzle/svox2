@@ -185,6 +185,25 @@ with torch.no_grad():
                            w, h,
                            ndc_coeffs=dset.ndc_coeffs)
         im = grid.volume_render_image(cam, use_kernel=True, return_raylen=args.ray_len)
+
+        # Render and save depth map
+        if not args.timing and not args.render_path:
+            depth_dir = path.join(path.dirname(render_dir), 'test_depth')
+            os.makedirs(depth_dir, exist_ok=True)
+            try:
+                depth_im = grid.volume_render_depth_image(cam)
+                depth_np = depth_im.cpu().numpy()
+                d_min, d_max = depth_np.min(), depth_np.max()
+                if d_max > d_min:
+                    depth_norm = (depth_np - d_min) / (d_max - d_min)
+                else:
+                    depth_norm = np.zeros_like(depth_np)
+                depth_u8 = (depth_norm * 255).astype(np.uint8)
+                # Save as grayscale PNG (colormap applied in results builder)
+                imageio.imwrite(path.join(depth_dir, f'{img_id:04d}.png'), depth_u8)
+            except Exception as e:
+                print(f"  [plenoxels] Depth render failed for {img_id}: {e}")
+
         if args.ray_len:
             minv, meanv, maxv = im.min().item(), im.mean().item(), im.max().item()
             im = viridis_cmap(im.cpu().numpy())
