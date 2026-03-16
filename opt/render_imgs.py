@@ -189,17 +189,21 @@ with torch.no_grad():
         # Render and save depth map
         if not args.timing and not args.render_path:
             depth_dir = path.join(path.dirname(render_dir), 'test_depth')
+            depth_raw_dir = path.join(path.dirname(render_dir), 'test_depth_raw')
             os.makedirs(depth_dir, exist_ok=True)
+            os.makedirs(depth_raw_dir, exist_ok=True)
             try:
                 depth_im = grid.volume_render_depth_image(cam)
                 depth_np = depth_im.cpu().numpy()
+                # Raw metric depth as .npy (COLMAP scene units / meters)
+                np.save(path.join(depth_raw_dir, f'{img_id:04d}.npy'), depth_np)
+                # Normalized PNG for visualization
                 d_min, d_max = depth_np.min(), depth_np.max()
                 if d_max > d_min:
                     depth_norm = (depth_np - d_min) / (d_max - d_min)
                 else:
                     depth_norm = np.zeros_like(depth_np)
                 depth_u8 = (depth_norm * 255).astype(np.uint8)
-                # Save as grayscale PNG (colormap applied in results builder)
                 imageio.imwrite(path.join(depth_dir, f'{img_id:04d}.png'), depth_u8)
             except Exception as e:
                 print(f"  [plenoxels] Depth render failed for {img_id}: {e}")
